@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>精准防空 - 视觉认知训练 | Precision Air Defense</title>
+    <style>
+        :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; overflow: hidden; background-color: #0b0c10; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+        canvas { display: block; touch-action: none; }
+
+        #ui { position: absolute; top: calc(10px + var(--safe-top)); width: 100%; text-align: center; font-size: 13px; font-weight: bold; pointer-events: none; text-shadow: 0 0 10px cyan; color: #66fcf1; z-index: 10; line-height: 1.5; }
+        #hint { position: absolute; bottom: calc(15px + var(--safe-bottom)); width: 100%; text-align: center; font-size: 12px; color: #888; pointer-events: none; z-index: 10; line-height: 1.5; }
+        #win-message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; font-weight: bold; color: #ffd700; text-shadow: 0 0 20px #ffd700; display: none; pointer-events: none; text-align: center; line-height: 1.6; z-index: 20; width: 90%; }
+        #win-message span { font-size: 14px; color: #66fcf1; text-shadow: 0 0 10px #66fcf1; }
+
+        #game-top-btns { position: absolute; top: calc(10px + var(--safe-top)); right: 10px; display: flex; gap: 6px; z-index: 15; }
+        #game-top-btns button { padding: 6px 10px; font-size: 10px; font-family: inherit; background: transparent; border-radius: 5px; cursor: pointer; letter-spacing: 0.5px; text-align: center; line-height: 1.4; max-width: 90px; }
+        #btn-exit { color: #ff3366; border: 2px solid #ff3366; }
+        #btn-exit:active { background: #ff3366; color: #0b0c10; }
+        #btn-ingame-leaderboard { color: #66fcf1; border: 2px solid #66fcf1; }
+        #btn-ingame-leaderboard:active { background: #66fcf1; color: #0b0c10; }
+
+        #start-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, rgba(31,40,51,0.98) 0%, rgba(11,12,16,0.99) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; padding: 15px; overflow-y: auto; }
+        #start-menu h1 { color: #66fcf1; text-shadow: 0 0 30px #66fcf1, 0 0 60px #45a29e; font-size: 22px; letter-spacing: 1px; margin: 0 0 5px 0; text-align: center; }
+        #start-menu h2 { color: #45a29e; font-size: 12px; letter-spacing: 1px; font-weight: normal; margin: 0 0 15px 0; text-align: center; }
+        #start-menu button { padding: 8px 20px; font-size: 13px; margin: 4px; background: transparent; color: #66fcf1; border: 2px solid #66fcf1; border-radius: 6px; cursor: pointer; letter-spacing: 0.5px; font-family: inherit; text-align: center; line-height: 1.5; min-width: 260px; max-width: 90%; }
+        #start-menu button:active { background: #66fcf1; color: #0b0c10; box-shadow: 0 0 20px #66fcf1; }
+
+        /* 🌟 移除黑色背景，保留高对比度亮色文字和文字阴影 */
+        #start-menu .tips {
+            color: #e0e0e0;
+            margin-top: 15px;
+            font-size: 12px;
+            line-height: 1.8;
+            text-align: center;
+            letter-spacing: 0.5px;
+            max-width: 95%;
+            padding: 0 10px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8); /* 轻微阴影，防止与背景混淆 */
+        }
+        #start-menu .tips b { color: #66fcf1; display: block; margin-bottom: 5px; font-size: 13px; }
+        #start-menu .tips .red { color: #ff3366; font-weight: bold; }
+        #start-menu .tips .blue { color: #33ccff; font-weight: bold; }
+        #start-menu .tips .row { margin-bottom: 4px; }
+
+        #leaderboard-panel, #stats-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 92%; max-width: 480px; max-height: 85%; overflow-y: auto; background: rgba(11,12,16,0.98); border: 2px solid #66fcf1; border-radius: 10px; padding: 20px; z-index: 150; box-shadow: 0 0 50px rgba(102, 252, 241, 0.3); }
+        #stats-modal { border-color: #ffd700; box-shadow: 0 0 50px rgba(255, 215, 0, 0.3); z-index: 200; }
+        #leaderboard-panel h3, #stats-modal h3 { color: #ffd700; text-align: center; margin-top: 0; text-shadow: 0 0 10px #ffd700; letter-spacing: 1px; line-height: 1.5; font-size: 15px; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin: 4px 0; background: rgba(31,40,51,0.6); border-radius: 5px; font-size: 11px; color: #c5c6c7; line-height: 1.5; }
+        .stat-row span:first-child { flex: 1; }
+        .stat-row span:last-child { color: #66fcf1; font-weight: bold; text-align: right; }
+        #stats-modal .stat-row span:last-child { color: #ffd700; }
+
+        #input-player-name { width: 100%; padding: 10px; margin: 15px 0 10px 0; font-size: 14px; text-align: center; font-family: inherit; background: rgba(31,40,51,0.9); color: #ffd700; border: 2px solid #ffd700; border-radius: 6px; outline: none; }
+        #stats-modal .modal-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
+        #stats-modal .modal-buttons button { padding: 8px 15px; font-size: 12px; font-family: inherit; border-radius: 6px; cursor: pointer; flex: 1; background: transparent; letter-spacing: 0.5px; line-height: 1.5; }
+        #stats-modal .btn-resume { color: #66fcf1; border: 2px solid #66fcf1; }
+        #stats-modal .btn-confirm-exit { color: #ff3366; border: 2px solid #ff3366; }
+
+        #leaderboard-list { list-style: none; padding: 0; margin: 10px 0; }
+        #leaderboard-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin: 3px 0; background: rgba(31,40,51,0.8); border-radius: 5px; border-left: 4px solid #45a29e; font-size: 11px; line-height: 1.4; }
+        #leaderboard-list li span:last-child { text-align: right; }
+        #leaderboard-panel .close-btn { display: block; margin: 15px auto 0; padding: 8px 20px; background: transparent; color: #66fcf1; border: 2px solid #66fcf1; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; }
+
+        #mobile-p2-controls { display: none; position: absolute; bottom: calc(20px + var(--safe-bottom)); left: 0; width: 100%; justify-content: space-between; padding: 0 15px; z-index: 30; pointer-events: none; }
+        #mobile-p2-controls .left-group, #mobile-p2-controls .right-group { display: flex; gap: 15px; pointer-events: auto; }
+        .ctrl-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(31,40,51,0.85); color: #66fcf1; border: 3px solid #45a29e; font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; user-select: none; touch-action: none; position: relative; }
+        .ctrl-btn::after { content: ''; position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px; border-radius: 50%; }
+        .ctrl-btn:active { background: #66fcf1; color: #0b0c10; transform: scale(0.95); }
+        .ctrl-btn.shoot-btn { width: 80px; height: 80px; font-size: 11px; color: #ffd700; border-color: #ffd700; line-height: 1.2; }
+        .ctrl-btn.shoot-btn:active { background: #ffd700; color: #0b0c10; }
+        .credits { color: #45a29e; font-size: 10px; letter-spacing: 1px; font-weight: bold; text-align: center; margin-top: 15px; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span>波次/Wave: <span id="levelCount">1</span>/100</span> |
+        <span>目标/Targets: <span id="ballCount">0</span></span> |
+        <span>用时/Time: <span id="timer">0.00</span>s</span>
+    </div>
+
+    <div id="game-top-btns">
+        <button id="btn-ingame-leaderboard">排行榜<br>Rank</button>
+        <button id="btn-exit">结束训练<br>End</button>
+    </div>
+
+    <div id="mobile-p2-controls">
+        <div class="left-group">
+            <div class="ctrl-btn" id="p2-left">←</div>
+            <div class="ctrl-btn" id="p2-right">→</div>
+        </div>
+        <div class="right-group">
+            <div class="ctrl-btn shoot-btn" id="p2-shoot">发射<br>Fire</div>
+        </div>
+    </div>
+
+    <div id="win-message"></div>
+    <div id="hint">
+        <span>触摸瞄准并射击 / Touch to aim & shoot</span>
+    </div>
+
+    <div id="start-menu">
+        <h1>精准防空 - 视觉认知训练</h1>
+        <h2>PRECISION AIR DEFENSE - VISION TRAINER</h2>
+
+        <button id="btn-single">1. 基础追踪 / Basic Tracking</button>
+        <button id="btn-color">2. 抗干扰训练 / Anti-Interference</button>
+        <button id="btn-invisible">3. 视觉暂留 / Visual Persistence</button>
+        <button id="btn-dual">4. 双人协作 / Dual Player</button>
+        <button id="btn-leaderboard">查看训练记录 / View Records</button>
+
+        <!-- 🌟 没有黑色背景框的训练说明 -->
+        <div class="tips">
+            <b>【训练说明 / Instructions】</b>
+            <div class="row">基础追踪：锻炼多目标动态追踪 / Basic: Multi-target tracking</div>
+            <div class="row">抗干扰：<span class="red">红色为目标</span>，<span class="blue">蓝色为干扰</span>，打错扣时间 / <span class="red">Red: Target</span>, <span class="blue">Blue: Distractor</span></div>
+            <div class="row">视觉暂留：目标会周期性隐身，需预判轨迹 / Persistence: Predict invisible targets</div>
+            <div class="row">双人协作：双人同屏合作，清空所有目标 / Dual: Co-op to clear all targets</div>
+            <div class="row" style="color: #888; font-size: 11px; margin-top: 6px;">所有数据均在本地保存 / All data saved locally</div>
+        </div>
+        <div class="credits">Produced by: 大明DM</div>
+    </div>
+
+    <div id="leaderboard-panel">
+        <h3>🏆 历史训练记录 / Training Records</h3>
+        <ul id="leaderboard-list"></ul>
+        <button class="close-btn" id="btn-close-leaderboard">关闭 / Close</button>
+        <div class="credits">Produced by: 大明DM</div>
+    </div>
+
+    <div id="stats-modal">
+        <h3>📋 认知评估报告 / Cognitive Report</h3>
+        <div class="stat-row"><span>训练模式 / Mode</span><span id="stat-mode">基础追踪 / Basic</span></div>
+        <div class="stat-row"><span>到达波次 / Wave</span><span id="stat-level">1</span></div>
+        <div class="stat-row"><span>总训练时长 / Time</span><span id="stat-time">0 s</span></div>
+        <div class="stat-row"><span>总射击数 / Shots</span><span id="stat-shots">0</span></div>
+        <div class="stat-row"><span>正确命中 / Hits</span><span id="stat-kills">0</span></div>
+        <div class="stat-row"><span>误判次数 / Misses</span><span id="stat-wrongs">0</span></div>
+        <div class="stat-row"><span>平均反应时间 / Reaction</span><span id="stat-rt">0 ms</span></div>
+        <div class="stat-row"><span>视觉预判准确率 / Accuracy</span><span id="stat-accuracy">0%</span></div>
+
+        <input type="text" id="input-player-name" placeholder="输入训练代号保存报告 / Enter name to save" maxlength="12">
+
+        <div class="modal-buttons">
+            <button class="btn-resume" id="btn-resume">继续训练 / Resume</button>
+            <button class="btn-confirm-exit" id="btn-confirm-exit">保存并退出 / Save & Exit</button>
+        </div>
+        <div class="credits">Produced by: 大明DM</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('Game Error:', msg, 'Line:', lineNo);
+            return false;
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        const domLevel = document.getElementById('levelCount');
+        const domBall = document.getElementById('ballCount');
+        const domTimer = document.getElementById('timer');
+        const domWinMsg = document.getElementById('win-message');
+
+        let cx = 0, cy = 0, rx = 0, ry = 0;
+        const gravity = 0.15;
+        const turretBaseRadius = 18;
+        const barrelLength = 30;
+        const BULLET_SPEED = 14;
+
+        let gameMode = 'single';
+        let currentLevel = 1;
+        let particles = [];
+        let bullets = [];
+        let turrets = [];
+        let particlesRemaining = 0;
+        let gameState = 'menu';
+
+        let sessionStartTime = 0;
+        let totalShots = 0;
+        let totalKills = 0;
+        let totalWrongs = 0;
+        let totalReactionTime = 0;
+        let levelStartTime = 0;
+        let timerInterval = null;
+        let pauseStartTime = 0;
+        let levelTransitionTimeout = null;
+        let levelTransitionActive = false;
+        let lastTime = 0;
+
+        let isLeaderboardFromGame = false;
+        let isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        let p2LeftPressed = false;
+        let p2RightPressed = false;
+        let leaderboard = [];
+        try { leaderboard = JSON.parse(localStorage.getItem('visionTrainerLeaderboard')) || []; } catch(e) { console.warn('本地存储不可用'); }
+
+        const colors = ['#FF3366', '#33CCFF', '#FFD700', '#33FF99', '#9933FF'];
+        const P1_COLOR = '#66fcf1';
+        const P2_COLOR = '#ff9933';
+        const keys = {};
+
+        function updateLayout() {
+            cx = width / 2;
+            cy = height / 2 - 30;
+            rx = Math.min(width * 0.42, 350);
+            ry = Math.min(height * 0.35, 280);
+        }
+
+        function buildTurrets() {
+            const baseY = cy + ry + 30;
+            if (gameMode === 'dual') {
+                const spacing = Math.min(180, rx * 0.7);
+                turrets = [
+                    { x: cx - spacing, y: baseY, angle: -Math.PI / 2, color: P1_COLOR, player: 1 },
+                    { x: cx + spacing, y: baseY, angle: -Math.PI / 2, color: P2_COLOR, player: 2 }
+                ];
+            } else {
+                turrets = [{ x: cx, y: baseY, angle: -Math.PI / 2, color: P1_COLOR, player: 1 }];
+            }
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (gameState === 'playing') {
+                    const elapsed = ((Date.now() - levelStartTime) / 1000).toFixed(2);
+                    domTimer.innerText = elapsed;
+                }
+            }, 50);
+        }
+
+        function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } return ((Date.now() - levelStartTime) / 1000).toFixed(2); }
+        function stopAllTimers() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
+
+        function sanitizeName(str) {
+            if (!str) return '';
+            return str.replace(/[<>]/g, '');
+        }
+
+        function saveScore(name, level, time, mode, accuracy, reactionTime) {
+            const playerName = sanitizeName(name) || '匿名 / Anonymous';
+            const record = { name: playerName, mode: mode, level: level, time: parseFloat(time), accuracy: accuracy, reactionTime: reactionTime, date: new Date().toLocaleDateString() };
+            leaderboard.push(record);
+            leaderboard.sort((a, b) => {
+                if (a.mode !== b.mode) return a.mode.localeCompare(b.mode);
+                if (b.level !== a.level) return b.level - a.level;
+                if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+                return a.reactionTime - b.reactionTime;
+            });
+            leaderboard = leaderboard.slice(0, 30);
+            try { localStorage.setItem('visionTrainerLeaderboard', JSON.stringify(leaderboard)); } catch(e) {}
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = '';
+            if (leaderboard.length === 0) { list.innerHTML = '<li style="justify-content:center; color:#555;">暂无训练记录 / No records</li>'; return; }
+            const modeNames = { single: '基础/Basic', color: '抗干扰/Anti', invisible: '暂留/Persistence', dual: '双人/Dual' };
+            leaderboard.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>#${index + 1} [${modeNames[item.mode] || item.mode}] ${item.name}</span><span>波/Wave ${item.level} | 准/Acc ${item.accuracy}% | ${item.reactionTime}ms</span>`;
+                list.appendChild(li);
+            });
+        }
+
+        let audioCtx = null;
+        let activeSounds = 0;
+        function initAudio() { try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {} }
+
+        function playTone(freq, duration, type = 'sine', volume = 0.15, delay = 0) {
+            if (!audioCtx || activeSounds > 3) return;
+            activeSounds++;
+            try {
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.value = freq;
+                const t = audioCtx.currentTime + delay;
+                gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(volume, t + 0.01); gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(t); osc.stop(t + duration + 0.05);
+                osc.onended = () => { activeSounds--; };
+            } catch (e) { activeSounds--; }
+        }
+
+        function playShootSound() { playTone(1200, 0.08, 'square', 0.05); }
+        function playHitSound() { playTone(1500, 0.12, 'sine', 0.1); playTone(2200, 0.12, 'sine', 0.1, 0.02); }
+        function playWrongSound() { playTone(150, 0.25, 'sawtooth', 0.15); }
+        function playLevelClearSound(level) {
+            const melodyPatterns = [[0, 4, 7, 12], [0, 3, 7, 10], [0, 2, 4, 7, 9], [12, 7, 4, 0], [0, 5, 7, 12]];
+            const pattern = melodyPatterns[(level - 1) % melodyPatterns.length];
+            const baseFreq = 220 * Math.pow(2, ((level - 1) % 12) / 12);
+            pattern.forEach((step, i) => { playTone(baseFreq * Math.pow(2, step / 12), 0.35, 'triangle', 0.16, i * 0.13); });
+        }
+
+        class Particle {
+            constructor() {
+                this.x = cx; this.y = cy;
+                const safeDist = Math.min(rx, ry) * 0.5;
+                for (let attempt = 0; attempt < 50; attempt++) {
+                    const angle = Math.random() * Math.PI * 2; const r = Math.sqrt(Math.random());
+                    const px = cx + Math.cos(angle) * rx * r * 0.9; const py = cy + Math.sin(angle) * ry * r * 0.9;
+                    let tooClose = false;
+                    for (const t of turrets) { const dx = px - t.x, dy = py - t.y; if (dx * dx + dy * dy < safeDist * safeDist) { tooClose = true; break; } }
+                    if (!tooClose) { this.x = px; this.y = py; break; }
+                }
+                this.vx = (Math.random() - 0.5) * 8; this.vy = (Math.random() - 0.5) * 8;
+
+                if (gameMode === 'color') {
+                    this.isTarget = Math.random() < 0.6;
+                    this.color = this.isTarget ? '#FF3366' : '#33CCFF';
+                } else {
+                    this.isTarget = true;
+                    this.color = colors[Math.floor(Math.random() * colors.length)];
+                }
+
+                this.isVisible = true;
+                this.invisibleTimer = Math.random() * 1000;
+                this.radius = 4;
+                this.history = [];
+                this.alive = true;
+            }
+
+            update(dt) {
+                if (!this.alive) return;
+                const dx = cx - this.x; const dy = cy - this.y; const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 10) { this.vx += (dx / dist) * gravity; this.vy += (dy / dist) * gravity; }
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                const nx = (this.x - cx) / rx; const ny = (this.y - cy) / ry;
+                if (nx * nx + ny * ny > 1) {
+                    const angle = Math.atan2(ny / ry, nx / rx); const normalX = Math.cos(angle); const normalY = Math.sin(angle);
+                    const dot = this.vx * normalX + this.vy * normalY;
+                    this.vx -= 2 * dot * normalX; this.vy -= 2 * dot * normalY;
+                    this.x = cx + nx * rx * 0.99; this.y = cy + ny * ry * 0.99;
+                }
+
+                if (gameMode === 'invisible') {
+                    this.invisibleTimer += 16;
+                    if (this.invisibleTimer > 1200) {
+                        this.isVisible = !this.isVisible;
+                        this.invisibleTimer = 0;
+                    }
+                } else {
+                    this.isVisible = true;
+                }
+
+                this.history.push({ x: this.x, y: this.y });
+                const maxHist = isMobile ? 8 : 15;
+                if (this.history.length > maxHist) this.history.shift();
+            }
+
+            draw() {
+                if (!this.alive) return;
+
+                if (!this.isVisible) {
+                    ctx.beginPath(); ctx.strokeStyle = this.color; ctx.lineWidth = 1; ctx.globalAlpha = 0.15;
+                    for (let i = 0; i < this.history.length - 1; i++) {
+                        ctx.moveTo(this.history[i].x, this.history[i].y); ctx.lineTo(this.history[i+1].x, this.history[i+1].y);
+                    }
+                    ctx.stroke(); ctx.globalAlpha = 1.0;
+                    return;
+                }
+
+                ctx.beginPath(); ctx.strokeStyle = this.color; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.4;
+                for (let i = 0; i < this.history.length - 1; i++) {
+                    ctx.moveTo(this.history[i].x, this.history[i].y); ctx.lineTo(this.history[i+1].x, this.history[i+1].y);
+                }
+                ctx.stroke(); ctx.globalAlpha = 1.0;
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                if (particles.length < 100) { ctx.shadowBlur = 10; ctx.shadowColor = this.color; }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, angle, color = '#FFFFFF') {
+                this.x = x; this.y = y; this.vx = Math.cos(angle) * BULLET_SPEED; this.vy = Math.sin(angle) * BULLET_SPEED;
+                this.radius = 4; this.alive = true; this.color = color; this.shootTime = Date.now();
+            }
+            update(dt) {
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                if (this.x < -50 || this.x > width + 50 || this.y < -50 || this.y > height + 50) this.alive = false;
+            }
+            draw() {
+                const trailLength = this.radius * 4;
+                const backX = this.x - (this.vx / BULLET_SPEED) * trailLength;
+                const backY = this.y - (this.vy / BULLET_SPEED) * trailLength;
+                ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(backX, backY);
+                ctx.strokeStyle = this.color; ctx.lineWidth = this.radius * 1.2; ctx.lineCap = 'round';
+                ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                ctx.stroke(); ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+                ctx.fillStyle = '#FFFFFF'; ctx.shadowBlur = 5; ctx.shadowColor = '#FFFFFF';
+                ctx.fill(); ctx.shadowBlur = 0;
+            }
+        }
+
+        function drawEllipse() {
+            ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'cyan'; ctx.lineWidth = 2;
+            ctx.shadowBlur = 20; ctx.shadowColor = 'cyan';
+            ctx.stroke(); ctx.shadowBlur = 0;
+            ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'white'; ctx.shadowBlur = 10; ctx.shadowColor = 'white';
+            ctx.fill(); ctx.shadowBlur = 0;
+        }
+
+        function drawTurret(t) {
+            if (!t) return;
+            ctx.beginPath(); ctx.arc(t.x, t.y, turretBaseRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#1f2833'; ctx.strokeStyle = t.color; ctx.lineWidth = 3;
+            ctx.shadowBlur = 10; ctx.shadowColor = t.color;
+            ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+
+            const barrelEndX = t.x + Math.cos(t.angle) * barrelLength; const barrelEndY = t.y + Math.sin(t.angle) * barrelLength;
+            ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(barrelEndX, barrelEndY);
+            ctx.strokeStyle = t.color; ctx.lineWidth = 3; ctx.lineCap = 'round';
+            ctx.shadowBlur = 10; ctx.shadowColor = t.color;
+            ctx.stroke();
+
+            ctx.beginPath(); ctx.arc(barrelEndX, barrelEndY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = t.color; ctx.shadowBlur = 15; ctx.shadowColor = t.color;
+            ctx.fill(); ctx.shadowBlur = 0;
+        }
+
+        function drawConnections() {
+            const connectDistance = particles.length > 150 ? 100 : 150;
+            ctx.lineCap = 'round';
+
+            for (let i = 0; i < particles.length; i++) {
+                if (!particles[i].alive) continue;
+                for (let j = i + 1; j < particles.length; j++) {
+                    if (!particles[j].alive) continue;
+
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < connectDistance * connectDistance) {
+                        const dist = Math.sqrt(distSq);
+                        const alpha = 1 - (dist / connectDistance);
+                        if (alpha < 0.05) continue;
+
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+
+                        ctx.strokeStyle = particles[i].color;
+                        ctx.globalAlpha = alpha * 0.8;
+                        ctx.lineWidth = 0.8;
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function shootFromTurret(t) {
+            if (!t) return;
+            if (bullets.length > 30) return;
+            const barrelEndX = t.x + Math.cos(t.angle) * (barrelLength + 10); const barrelEndY = t.y + Math.sin(t.angle) * (barrelLength + 10);
+            bullets.push(new Bullet(barrelEndX, barrelEndY, t.angle, t.color));
+            playShootSound(); totalShots++;
+        }
+
+        function initLevel() {
+            updateLayout(); buildTurrets();
+            domLevel.innerText = currentLevel;
+            domTimer.innerText = '0.00';
+            particles = []; bullets = [];
+
+            const numParticles = Math.min(20 + (currentLevel - 1) * 10, 300);
+            for (let i = 0; i < numParticles; i++) { particles.push(new Particle()); }
+            particlesRemaining = numParticles;
+            domBall.innerText = numParticles;
+
+            levelStartTime = Date.now();
+            pauseStartTime = 0;
+            gameState = 'playing';
+            startTimer();
+        }
+
+        function startGame(mode) {
+            try {
+                initAudio();
+                gameMode = mode;
+                currentLevel = 1;
+                sessionStartTime = Date.now();
+                totalShots = 0;
+                totalKills = 0;
+                totalWrongs = 0;
+                totalReactionTime = 0;
+                pauseStartTime = 0;
+                levelTransitionActive = false;
+
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('hint').style.display = 'block';
+                document.getElementById('game-top-btns').style.display = 'flex';
+                document.getElementById('start-menu').style.display = 'none';
+                document.getElementById('leaderboard-panel').style.display = 'none';
+                document.getElementById('stats-modal').style.display = 'none';
+
+                if (isMobile && mode === 'dual') {
+                    document.getElementById('mobile-p2-controls').style.display = 'flex';
+                } else {
+                    document.getElementById('mobile-p2-controls').style.display = 'none';
+                }
+
+                const hint = document.getElementById('hint');
+                if (mode === 'color') {
+                    hint.innerHTML = '<span style="color:#ff3366">只打红色目标！ / Only hit RED targets!</span> 打中蓝色算误判 / Hit BLUE = penalty';
+                } else if (mode === 'invisible') {
+                    hint.innerHTML = '<span>目标会周期性隐身，请预判轨迹！ / Targets blink, predict their path!</span>';
+                } else if (mode === 'dual') {
+                    hint.innerHTML = '<span style="color:#66fcf1">P1: 触摸左半屏 / Touch left</span> | <span style="color:#ff9933">P2: 屏幕按钮 / On-screen buttons</span>';
+                } else {
+                    hint.innerHTML = '触摸瞄准并射击 / Touch to aim & shoot';
+                }
+                initLevel();
+            } catch (err) { console.error('startGame error:', err); alert('启动出错: ' + err.message); }
+        }
+
+        function returnToMenu() {
+            gameState = 'menu'; stopAllTimers(); particles = []; bullets = []; turrets = [];
+            if (levelTransitionTimeout) { clearTimeout(levelTransitionTimeout); levelTransitionTimeout = null; }
+            levelTransitionActive = false;
+            document.getElementById('stats-modal').style.display = 'none';
+            document.getElementById('ui').style.display = 'none';
+            document.getElementById('hint').style.display = 'none';
+            document.getElementById('game-top-btns').style.display = 'none';
+            document.getElementById('mobile-p2-controls').style.display = 'none';
+            document.getElementById('start-menu').style.display = 'flex';
+        }
+
+        function pauseGame() {
+            if (gameState === 'paused' || gameState === 'menu') return;
+            pauseStartTime = Date.now(); gameState = 'paused'; stopAllTimers();
+            if (levelTransitionTimeout) { clearTimeout(levelTransitionTimeout); levelTransitionTimeout = null; }
+            levelTransitionActive = false;
+            domWinMsg.style.display = 'none';
+        }
+
+        function resumeGame() {
+            if (gameState !== 'paused') return;
+            document.getElementById('stats-modal').style.display = 'none';
+            document.getElementById('leaderboard-panel').style.display = 'none';
+
+            if (pauseStartTime > 0) {
+                const pauseDuration = Date.now() - pauseStartTime;
+                levelStartTime += pauseDuration;
+                sessionStartTime += pauseDuration;
+                pauseStartTime = 0;
+            }
+
+            if (particlesRemaining <= 0) {
+                gameState = 'cleared';
+                if (!levelTransitionActive) {
+                    levelTransitionActive = true;
+                    levelTransitionTimeout = setTimeout(() => {
+                        domWinMsg.style.display = 'none';
+                        levelTransitionActive = false;
+                        currentLevel = currentLevel < 100 ? currentLevel + 1 : 1;
+                        initLevel();
+                    }, 1800);
+                }
+            } else { gameState = 'playing'; startTimer(); }
+        }
+
+        function animate(currentTime) {
+            try {
+                if (!lastTime) lastTime = currentTime;
+                let dt = (currentTime - lastTime) / 16.66;
+                if (dt > 3) dt = 3;
+                lastTime = currentTime;
+
+                ctx.fillStyle = 'rgba(11, 12, 16, 0.2)';
+                ctx.fillRect(0, 0, width, height);
+
+                if (gameState === 'menu' || gameState === 'paused') { requestAnimationFrame(animate); return; }
+                drawEllipse();
+
+                if (gameMode === 'dual' && turrets[1]) {
+                    const rotSpeed = 0.045 * dt;
+                    if (keys['a'] || p2LeftPressed) turrets[1].angle -= rotSpeed;
+                    if (keys['d'] || p2RightPressed) turrets[1].angle += rotSpeed;
+                    turrets[1].angle = Math.max(-Math.PI * 0.95, Math.min(-Math.PI * 0.05, turrets[1].angle));
+                }
+
+                bullets.forEach(b => b.update(dt));
+                for (let i = bullets.length - 1; i >= 0; i--) { if (!bullets[i].alive) bullets.splice(i, 1); }
+                bullets.forEach(b => b.draw());
+
+                particles.forEach(p => { p.update(dt); p.draw(); });
+
+                drawConnections();
+
+                if (gameState === 'playing') {
+                    for (let b of bullets) {
+                        for (let p of particles) {
+                            if (!p.alive) continue;
+                            const dx = b.x - p.x; const dy = b.y - p.y;
+
+                            if (dx * dx + dy * dy < (b.radius + p.radius) ** 2) {
+                                const now = Date.now();
+                                if (gameMode === 'color') {
+                                    if (p.isTarget) {
+                                        totalReactionTime += (now - b.shootTime);
+                                        totalKills++;
+                                        p.alive = false; b.alive = false; particlesRemaining--;
+                                        playHitSound();
+                                        if (navigator.vibrate) navigator.vibrate(20);
+                                    } else {
+                                        totalWrongs++;
+                                        p.alive = false; b.alive = false;
+                                        levelStartTime = Math.max(0, levelStartTime - 3000);
+                                        playWrongSound();
+                                    }
+                                } else {
+                                    totalReactionTime += (now - b.shootTime);
+                                    totalKills++;
+                                    p.alive = false; b.alive = false; particlesRemaining--;
+                                    playHitSound();
+                                    if (navigator.vibrate) navigator.vibrate(20);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) { if (!particles[i].alive) particles.splice(i, 1); }
+
+                turrets.forEach(drawTurret);
+
+                if (gameState === 'playing' && particlesRemaining <= 0) {
+                    gameState = 'cleared'; const clearTime = stopTimer();
+                    playLevelClearSound(currentLevel);
+
+                    if (currentLevel < 100) {
+                        domWinMsg.innerHTML = `波次 ${currentLevel} 完成 / Wave ${currentLevel} Cleared<br><span>用时 / Time: ${clearTime} s | 即将进入下一波 / Next wave incoming...</span>`;
+                    } else {
+                        domWinMsg.innerHTML = `全部 100 波完成！ / All 100 Waves Cleared!<br><span>你是真正的视觉大师！ / You are a true Vision Master!</span>`;
+                    }
+                    domWinMsg.style.display = 'block';
+
+                    if (!levelTransitionActive) {
+                        levelTransitionActive = true;
+                        levelTransitionTimeout = setTimeout(() => {
+                            domWinMsg.style.display = 'none';
+                            levelTransitionActive = false;
+                            currentLevel = currentLevel < 100 ? currentLevel + 1 : 1;
+                            initLevel();
+                        }, 1800);
+                    }
+                }
+            } catch (err) { console.error('animate error:', err); }
+            requestAnimationFrame(animate);
+        }
+
+        function handleAimAndShoot(clientX, clientY) {
+            if (!turrets[0] || gameState !== 'playing') return;
+
+            const target = document.elementFromPoint(clientX, clientY);
+            if (target && (target.closest('button') || target.closest('#mobile-p2-controls') || target.closest('#leaderboard-panel') || target.closest('#stats-modal'))) return;
+
+            if (gameMode === 'dual' && clientX > width / 2) return;
+
+            const dx = clientX - turrets[0].x; const dy = clientY - turrets[0].y;
+            let angle = Math.atan2(dy, dx);
+            if (!isFinite(angle)) angle = -Math.PI / 2;
+            if (angle > 0) angle = (clientX > turrets[0].x) ? -0.05 : -Math.PI + 0.05;
+            turrets[0].angle = angle;
+            shootFromTurret(turrets[0]);
+        }
+
+        window.addEventListener('touchstart', (e) => { initAudio(); for (let i = 0; i < e.changedTouches.length; i++) { handleAimAndShoot(e.changedTouches[i].clientX, e.changedTouches[i].clientY); } }, { passive: false });
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target && (target.closest('button') || target.closest('#mobile-p2-controls'))) continue;
+                if (gameMode === 'dual' && touch.clientX > width / 2) continue;
+                if (!turrets[0] || gameState !== 'playing') return;
+                const dx = touch.clientX - turrets[0].x; const dy = touch.clientY - turrets[0].y;
+                let angle = Math.atan2(dy, dx);
+                if (!isFinite(angle)) angle = -Math.PI / 2;
+                if (angle > 0) angle = (touch.clientX > turrets[0].x) ? -0.05 : -Math.PI + 0.05;
+                turrets[0].angle = angle;
+            }
+        }, { passive: false });
+
+        document.getElementById('p2-left').addEventListener('touchstart', (e) => { e.preventDefault(); p2LeftPressed = true; });
+        document.getElementById('p2-left').addEventListener('touchend', (e) => { e.preventDefault(); p2LeftPressed = false; });
+        document.getElementById('p2-left').addEventListener('touchcancel', () => { p2LeftPressed = false; });
+        document.getElementById('p2-right').addEventListener('touchstart', (e) => { e.preventDefault(); p2RightPressed = true; });
+        document.getElementById('p2-right').addEventListener('touchend', (e) => { e.preventDefault(); p2RightPressed = false; });
+        document.getElementById('p2-right').addEventListener('touchcancel', () => { p2RightPressed = false; });
+        document.getElementById('p2-shoot').addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); if (gameState === 'playing' && turrets[1]) { shootFromTurret(turrets[1]); } });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isMobile || gameState !== 'playing' || !turrets[0]) return;
+            const dx = e.clientX - turrets[0].x; const dy = e.clientY - turrets[0].y;
+            let angle = Math.atan2(dy, dx);
+            if (!isFinite(angle)) angle = -Math.PI / 2;
+            if (angle > 0) angle = (e.clientX > turrets[0].x) ? -0.05 : -Math.PI + 0.05;
+            turrets[0].angle = angle;
+        });
+        window.addEventListener('mousedown', (e) => { initAudio(); if (!isMobile && gameState === 'playing' && e.button === 0 && turrets[0]) {
+            const target = e.target;
+            if (target.closest('button') || target.closest('#mobile-p2-controls')) return;
+            shootFromTurret(turrets[0]);
+        } });
+        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; if (e.code === 'Space') { e.preventDefault(); if (!isMobile && gameState === 'playing' && gameMode === 'dual' && turrets[1] && !e.repeat) { shootFromTurret(turrets[1]); } } });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight;
+                updateLayout();
+                if (gameState !== 'menu') {
+                    buildTurrets();
+                    particles.forEach(p => {
+                        const nx = (p.x - cx) / rx; const ny = (p.y - cy) / ry;
+                        if (nx * nx + ny * ny > 1) {
+                            const angle = Math.random() * Math.PI * 2;
+                            p.x = cx + Math.cos(angle) * rx * 0.6; p.y = cy + Math.sin(angle) * ry * 0.6;
+                        }
+                    });
+                }
+            }, 200);
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && gameState === 'playing') {
+                pauseGame();
+            }
+        });
+
+        document.getElementById('btn-single').addEventListener('click', () => startGame('single'));
+        document.getElementById('btn-color').addEventListener('click', () => startGame('color'));
+        document.getElementById('btn-invisible').addEventListener('click', () => startGame('invisible'));
+        document.getElementById('btn-dual').addEventListener('click', () => startGame('dual'));
+
+        document.getElementById('btn-leaderboard').addEventListener('click', () => { isLeaderboardFromGame = false; renderLeaderboard(); document.getElementById('leaderboard-panel').style.display = 'block'; });
+        document.getElementById('btn-ingame-leaderboard').addEventListener('click', () => { if (gameState !== 'playing' && gameState !== 'cleared') return; isLeaderboardFromGame = true; pauseGame(); renderLeaderboard(); document.getElementById('leaderboard-panel').style.display = 'block'; });
+        document.getElementById('btn-close-leaderboard').addEventListener('click', () => { document.getElementById('leaderboard-panel').style.display = 'none'; if (isLeaderboardFromGame) { resumeGame(); } });
+
+        document.getElementById('btn-exit').addEventListener('click', () => {
+            if (gameState !== 'playing' && gameState !== 'cleared') return;
+            pauseGame();
+            const totalTimeSec = ((Date.now() - sessionStartTime) / 1000).toFixed(1);
+            const minutes = Math.floor(totalTimeSec / 60); const seconds = (totalTimeSec % 60).toFixed(1);
+            const timeStr = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+
+            const modeNames = { single: '基础追踪 / Basic', color: '抗干扰 / Anti', invisible: '视觉暂留 / Persistence', dual: '双人协作 / Dual' };
+            const acc = (totalKills + totalWrongs) > 0 ? ((totalKills / (totalKills + totalWrongs)) * 100).toFixed(1) : '0.0';
+            const avgRt = totalKills > 0 ? (totalReactionTime / totalKills).toFixed(0) : '0';
+
+            document.getElementById('stat-mode').innerText = modeNames[gameMode] || gameMode;
+            document.getElementById('stat-level').innerText = `第 ${currentLevel} 波 / Wave ${currentLevel}`;
+            document.getElementById('stat-time').innerText = timeStr;
+            document.getElementById('stat-shots').innerText = totalShots;
+            document.getElementById('stat-kills').innerText = totalKills;
+            document.getElementById('stat-wrongs').innerText = totalWrongs;
+            document.getElementById('stat-rt').innerText = `${avgRt} ms`;
+            document.getElementById('stat-accuracy').innerText = `${acc}%`;
+
+            const nameInput = document.getElementById('input-player-name');
+            nameInput.value = '';
+            nameInput.placeholder = '输入训练代号 / Enter name';
+            document.getElementById('stats-modal').style.display = 'block';
+            setTimeout(() => { nameInput.focus(); nameInput.select(); }, 100);
+        });
+
+        document.getElementById('btn-resume').addEventListener('click', () => { resumeGame(); });
+        document.getElementById('btn-confirm-exit').addEventListener('click', () => {
+            const name = document.getElementById('input-player-name').value.trim() || '匿名 / Anonymous';
+            const totalTimeSec = ((Date.now() - sessionStartTime) / 1000).toFixed(1);
+            const acc = (totalKills + totalWrongs) > 0 ? ((totalKills / (totalKills + totalWrongs)) * 100).toFixed(1) : '0.0';
+            const avgRt = totalKills > 0 ? (totalReactionTime / totalKills).toFixed(0) : '0';
+
+            saveScore(name, currentLevel, totalTimeSec, gameMode, acc, avgRt);
+            document.getElementById('stats-modal').style.display = 'none';
+            returnToMenu();
+        });
+
+        document.body.addEventListener('touchmove', function(e) {
+            if (e.target.closest('#leaderboard-panel') || e.target.closest('#stats-modal')) return;
+            e.preventDefault();
+        }, { passive: false });
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
